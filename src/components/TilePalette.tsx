@@ -5,6 +5,7 @@ import { TileDisplay } from './TileDisplay';
 interface Props {
   handTileIds: string[];
   deckSize: number;
+  sharedPoolIds: string[];
   selectedTileId: string | null;
   selectedRotation: number;
   onSelect: (id: string) => void;
@@ -24,8 +25,10 @@ export function TilePalette({
   onRotateCW,
   onRotateCCW,
   onDiscard,
+  sharedPoolIds,
 }: Props) {
   const hand = handTileIds.map((id) => getTileDef(id)).filter((t): t is TileDef => !!t);
+  const shared = sharedPoolIds.map((id) => getTileDef(id)).filter((t): t is TileDef => !!t);
 
   const named = hand.filter((t) => t.isNamed);
   const unnamed = hand.filter((t) => !t.isNamed && !t.isVillage);
@@ -35,7 +38,7 @@ export function TilePalette({
   const toggle = (id: string) => (selectedTileId === id ? onDeselect() : onSelect(id));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 210 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <h3 style={{ margin: 0, color: '#c4a87a', fontSize: 14 }}>
           Your Hand ({hand.length})
@@ -53,7 +56,7 @@ export function TilePalette({
         }}>
           <div style={{ fontSize: 11, color: '#ffd700', marginBottom: 4 }}>Selected:</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <TileDisplay tileDef={selDef} rotation={selectedRotation} size={64} showName />
+          <TileDisplay tileDef={selDef} rotation={selectedRotation} size={80} showName />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <Btn onClick={onRotateCCW}>↺</Btn>
               <Btn onClick={onRotateCW}>↻</Btn>
@@ -87,11 +90,11 @@ export function TilePalette({
       {/* named tiles in hand */}
       {named.length > 0 && (
         <Section label={`Named (${named.length})`} color="#ffd700">
-          {named.map((t) => (
+        {named.map((t) => (
             <TileDisplay
               key={t.id}
               tileDef={t}
-              size={56}
+              size={72}
               isSelected={selectedTileId === t.id}
               onClick={() => toggle(t.id)}
               showName
@@ -103,13 +106,14 @@ export function TilePalette({
       {/* unnamed tiles in hand */}
       {unnamed.length > 0 && (
         <Section label={`Maze (${unnamed.length})`} color="#9ca3af">
-          {unnamed.map((t) => (
+        {unnamed.map((t) => (
             <TileDisplay
               key={t.id}
               tileDef={t}
-              size={56}
+              size={72}
               isSelected={selectedTileId === t.id}
               onClick={() => toggle(t.id)}
+              showName
             />
           ))}
         </Section>
@@ -120,7 +124,7 @@ export function TilePalette({
         <Section label="Village (last)" color="#8B7355">
           <TileDisplay
             tileDef={village}
-            size={56}
+            size={72}
             isSelected={selectedTileId === village.id}
             onClick={() => toggle(village.id)}
             showName
@@ -131,6 +135,33 @@ export function TilePalette({
       {hand.length === 0 && (
         <div style={{ fontSize: 11, color: '#6b6375', fontStyle: 'italic' }}>
           {deckSize > 0 ? 'Waiting for draw…' : 'No tiles remaining.'}
+        </div>
+      )}
+
+      {/* shared pool — visible to all players */}
+      {shared.length > 0 && (
+        <div style={{
+          marginTop: 4,
+          padding: '8px 6px',
+          background: '#0f1f0f',
+          border: '1px solid #c4a87a',
+          borderRadius: 6,
+        }}>
+          <div style={{ fontSize: 11, color: '#c4a87a', marginBottom: 6 }}>Available to All</div>
+          {shared.map((t) => (
+            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <TileDisplay
+                tileDef={t}
+                size={72}
+                isSelected={selectedTileId === t.id}
+                onClick={() => toggle(t.id)}
+                showName
+              />
+              <div style={{ fontSize: 10, color: '#9ca3af', lineHeight: 1.4 }}>
+                Place at center once a path connects from the entrance.
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -1,14 +1,12 @@
 interface Props {
-  onUndo: () => void;
   onReset: () => void;
-  canUndo: boolean;
   phase: string;
   movesRemaining: number;
   hazardCount: number;
   hazardCap: number;
 }
 
-export function GameControls({ onUndo, onReset, canUndo, phase, movesRemaining, hazardCount, hazardCap }: Props) {
+export function GameControls({ onReset, phase, movesRemaining, hazardCount, hazardCap }: Props) {
   const movesColor =
     movesRemaining <= 5 ? '#e74c3c' : movesRemaining <= 10 ? '#f39c12' : '#c4a87a';
   const hazardColor =
@@ -46,7 +44,6 @@ export function GameControls({ onUndo, onReset, canUndo, phase, movesRemaining, 
         {phase === 'failed' && (
           <span style={{ color: '#e74c3c', fontSize: 14 }}>✗ Maze lost!</span>
         )}
-        <button onClick={onUndo} disabled={!canUndo} style={btn}>↩ Undo</button>
         <button
           onClick={() => { if (confirm('Reset the entire maze?')) onReset(); }}
           style={btn}

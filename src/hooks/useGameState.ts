@@ -3,7 +3,7 @@ import type { GameState, PlacedTile, Player, LogEntry } from '../types';
 import { NAMED_TILES, UNNAMED_TILES, VILLAGE_TILE, getTileDef } from '../data/tiles';
 
 const HAND_SIZE = 3;
-const MOVE_LIMIT = 20;
+const MOVE_LIMIT = 15;
 export const HAZARD_CAP = 15;
 export const NAMED_TILES_REQUIRED = 5;
 
@@ -82,6 +82,7 @@ function createInitialState(): GameState {
     movesRemaining: MOVE_LIMIT,
     hazardCount: 0,
     consecutivePasses: 0,
+    sharedPool: [],
   };
 }
 
@@ -136,20 +137,26 @@ function gameReducer(state: GameState, action: Action): GameState {
       const allPlacedIds = new Set([...state.placedTiles.map((p) => p.defId), state.selectedTileId]);
       const placedNamedCount = [...allPlacedIds].filter((id) => getTileDef(id)?.isNamed).length;
       const allNamedPlaced = placedNamedCount >= NAMED_TILES_REQUIRED;
-      const villageAlreadyInPlay = state.remainingTileIds.includes(VILLAGE_TILE.id);
+      const villageAlreadyInPlay =
+        state.remainingTileIds.includes(VILLAGE_TILE.id) || state.sharedPool.includes(VILLAGE_TILE.id);
       const unlockVillage = allNamedPlaced && !villageAlreadyInPlay && !tileDef?.isVillage;
-      const nextPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;
 
-      // Deal Village directly into the next player's hand on unlock so it's immediately available
+      // Village goes into a shared pool visible to all players
+      const newSharedPool = unlockVillage
+        ? [...state.sharedPool, VILLAGE_TILE.id]
+        : state.sharedPool.filter((id) => id !== state.selectedTileId);
+
+      // If placing from the shared pool, don't draw a replacement
+      const fromSharedPool = state.sharedPool.includes(state.selectedTileId!);
       const newHands = state.hands.map((h, i) => {
-        if (i === state.currentPlayerIndex) return updatedHand;
-        if (i === nextPlayerIndex && unlockVillage) return [...h, VILLAGE_TILE.id];
+        if (i === state.currentPlayerIndex) return fromSharedPool ? h : updatedHand;
         return h;
       });
+      if (fromSharedPool) newDeck = state.deck; // no draw for shared pool placements
 
-      // Hazard tiles (any symbols) are free to place but push the hazard meter
+      // All tiles cost 1 move; hazard tiles additionally push the hazard meter
       const isHazardTile = (tileDef?.symbols.length ?? 0) > 0;
-      const newMovesRemaining = isHazardTile ? state.movesRemaining : state.movesRemaining - 1;
+      const newMovesRemaining = state.movesRemaining - 1;
       const newHazardCount = isHazardTile ? state.hazardCount + 1 : state.hazardCount;
 
       const isVillage = tileDef?.isVillage ?? false;
@@ -177,6 +184,7 @@ function gameReducer(state: GameState, action: Action): GameState {
           : state.remainingTileIds.filter((id) => id !== state.selectedTileId),
         deck: newDeck,
         hands: newHands,
+        sharedPool: newSharedPool,
         selectedTileId: null,
         selectedRotation: 0,
         currentPlayerIndex: (state.currentPlayerIndex + 1) % state.players.length,
@@ -318,7 +326,7 @@ function gameReducer(state: GameState, action: Action): GameState {
         currentPlayerIndex: prevIndex,
         log: [{ message: 'Last placement undone.', timestamp: Date.now() }, ...state.log],
         phase: 'playing',
-        movesRemaining: undoWasHazard ? state.movesRemaining : state.movesRemaining + 1,
+        movesRemaining: state.movesRemaining + 1,
         hazardCount: undoWasHazard ? state.hazardCount - 1 : state.hazardCount,
       };
     }

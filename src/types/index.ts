@@ -62,6 +62,7 @@ export interface GameState {
   movesRemaining: number;
   hazardCount: number;
   consecutivePasses: number;
+  sharedPool: string[];
 }
 
 /** Return the exits of a tile after applying rotation (clockwise degrees). */

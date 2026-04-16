@@ -4,6 +4,7 @@ import { getTileDef } from './data/tiles';
 import { getValidPlacements } from './utils/placementRules';
 import { MazeBoard } from './components/MazeBoard';
 import { TilePalette } from './components/TilePalette';
+import { Legend } from './components/Legend';
 import { TurnTracker } from './components/TurnTracker';
 import { GameControls } from './components/GameControls';
 import { HazardEventModal } from './components/HazardEventModal';
@@ -25,14 +26,13 @@ function App() {
     applySafeBenefit,
     tutorTile,
     passTurn,
-    undo,
     reset,
     setPlayers,
   } = useGameState();
 
   const canCurrentPlayerPlace =
     state.phase === 'playing' &&
-    state.hands[state.currentPlayerIndex].some((tileId) =>
+    [...state.hands[state.currentPlayerIndex], ...state.sharedPool].some((tileId) =>
       [0, 90, 180, 270].some(
         (r) => getValidPlacements(tileId, r, state.placedTiles, NAMED_TILES_REQUIRED).length > 0,
       ),
@@ -139,9 +139,7 @@ function App() {
         />
       )}
         <GameControls
-          onUndo={undo}
           onReset={reset}
-          canUndo={state.placedTiles.length > 2}
           phase={state.phase}
           movesRemaining={state.movesRemaining}
           hazardCount={state.hazardCount}
@@ -150,10 +148,11 @@ function App() {
 
       <div style={{ display: 'flex', flex: 1, gap: 16, padding: 16, overflow: 'hidden' }}>
         {/* Left: palette */}
-        <div style={{ overflowY: 'auto', flexShrink: 0 }}>
+        <div style={{ overflowY: 'auto', flexShrink: 0, width: 300 }}>
           <TilePalette
             handTileIds={state.hands[state.currentPlayerIndex]}
             deckSize={state.deck.length}
+            sharedPoolIds={state.sharedPool}
             selectedTileId={state.selectedTileId}
             selectedRotation={state.selectedRotation}
             onSelect={selectTile}
@@ -162,20 +161,30 @@ function App() {
             onRotateCCW={rotateCCW}
             onDiscard={discardTile}
           />
+          <Legend />
         </div>
 
         {/* Center: board */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'auto' }}>
-          <MazeBoard placedTiles={state.placedTiles} validSlots={validSlots} onSlotClick={handleSlotClick} />
+        <MazeBoard
+            placedTiles={state.placedTiles}
+            validSlots={validSlots}
+            onSlotClick={handleSlotClick}
+            centerLocked={state.placedTiles.filter((p) => {
+              const d = getTileDef(p.defId); return d?.isNamed ?? false;
+            }).length < NAMED_TILES_REQUIRED}
+          />
         </div>
 
         {/* Right: turn tracker */}
-        <div style={{ flexShrink: 0 }}>
+        <div style={{ flexShrink: 0, width: 260 }}>
           <TurnTracker
             players={state.players}
             currentPlayerIndex={state.currentPlayerIndex}
             log={state.log}
             phase={state.phase}
+            placedTileDefIds={state.placedTiles.map((p) => p.defId)}
+            namedRequired={NAMED_TILES_REQUIRED}
             onUpdatePlayerName={handlePlayerName}
           />
         </div>

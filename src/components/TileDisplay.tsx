@@ -4,11 +4,23 @@ const TILE_PX = 80;
 const PATH_W = 24;
 
 const SYMBOL_ICON: Record<TileSymbol, { char: string; label: string }> = {
-  monster: { char: '👹', label: 'Monster' },
-  trap: { char: '⌧', label: 'Trap' },
-  encounter: { char: '▼', label: 'Encounter' },
-  ambush: { char: '❗', label: 'Ambush' },
+  monster: { char: '\ud83d\udc79', label: 'Monster' },
+  trap: { char: '\u232f', label: 'Trap' },
+  encounter: { char: '\u25bc', label: 'Encounter' },
+  ambush: { char: '\u2757', label: 'Ambush' },
 };
+
+// Wall texture patches — normalized coords (0–1) scaled by tile size
+const WALL_PATCHES = [
+  { cx: 0.14, cy: 0.14, rx: 0.13, ry: 0.09 },
+  { cx: 0.82, cy: 0.17, rx: 0.09, ry: 0.12 },
+  { cx: 0.16, cy: 0.82, rx: 0.11, ry: 0.08 },
+  { cx: 0.80, cy: 0.80, rx: 0.08, ry: 0.11 },
+  { cx: 0.50, cy: 0.12, rx: 0.07, ry: 0.09 },
+  { cx: 0.12, cy: 0.50, rx: 0.08, ry: 0.07 },
+  { cx: 0.88, cy: 0.50, rx: 0.07, ry: 0.08 },
+  { cx: 0.50, cy: 0.88, rx: 0.09, ry: 0.07 },
+];
 
 interface Props {
   tileDef: TileDef;
@@ -30,14 +42,35 @@ export function TileDisplay({
   const exits = getRotatedExits(tileDef.exits, rotation);
   const s = size;
   const half = s / 2;
-  const pw = (PATH_W / TILE_PX) * s;
+  const pw = (PATH_W / TILE_PX) * s;   // corridor width
+  const sw = pw * 0.22;                 // wall-shadow strip beside corridor
+  const hw = pw * 0.32;                 // highlight strip down corridor centre
 
-  let bg = '#2d5a27';
-  if (tileDef.isJungle) bg = '#4a7a3a';
-  if (tileDef.isVillage) bg = '#8B7355';
-  if (tileDef.isEntrance) bg = '#3d6b34';
+  // ---- colour scheme -------------------------------------------------------
+  let wallBase = '#152d12';   // deep jungle wall
+  let wallDark = '#0b1e09';   // foliage shadow
+  let wallMid  = '#1e3d1a';   // mid-tone patches
+  let pathFloor = '#7a5535';  // worn stone
+  let pathLight = '#9a7050';  // stone highlight
+  let pathShadow = '#4a3020'; // corridor wall shadow
 
-  const path = tileDef.isJungle ? '#7a9a5a' : tileDef.isVillage ? '#c4a87a' : '#8B7355';
+  if (tileDef.isJungle) {
+    wallBase = '#2a5a1e'; wallDark = '#193d12'; wallMid = '#356828';
+    pathFloor = '#5a8a40'; pathLight = '#72a850'; pathShadow = '#2a4a18';
+  }
+  if (tileDef.isEntrance) {
+    wallBase = '#1c4018'; wallDark = '#112a0e'; wallMid = '#274f22';
+  }
+  if (tileDef.isVillage) {
+    wallBase = '#5a4228'; wallDark = '#3a2a18'; wallMid = '#6e5235';
+    pathFloor = '#b08c5c'; pathLight = '#c8a870'; pathShadow = '#6a4c28';
+  }
+  // --------------------------------------------------------------------------
+
+  const N = exits.includes('N');
+  const S = exits.includes('S');
+  const E = exits.includes('E');
+  const W = exits.includes('W');
 
   return (
     <div
@@ -47,7 +80,7 @@ export function TileDisplay({
         height: s,
         position: 'relative',
         cursor: onClick ? 'pointer' : 'default',
-        border: isSelected ? '2px solid #ffd700' : '1px solid #1a3a15',
+        border: isSelected ? '2px solid #ffd700' : `1px solid ${wallDark}`,
         borderRadius: 4,
         overflow: 'hidden',
         boxSizing: 'border-box',
@@ -55,24 +88,97 @@ export function TileDisplay({
       }}
     >
       <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
-        <rect width={s} height={s} fill={bg} />
 
+        {/* === LAYER 1: wall base === */}
+        <rect width={s} height={s} fill={wallBase} />
+
+        {/* === LAYER 2: foliage/shadow patches === */}
+        {WALL_PATCHES.map((p, i) => (
+          <ellipse key={i}
+            cx={p.cx * s} cy={p.cy * s}
+            rx={p.rx * s} ry={p.ry * s}
+            fill={wallDark} opacity={0.55}
+          />
+        ))}
+        {/* lighter mid-tone specks */}
+        <ellipse cx={s*0.30} cy={s*0.22} rx={s*0.06} ry={s*0.05} fill={wallMid} opacity={0.4} />
+        <ellipse cx={s*0.70} cy={s*0.75} rx={s*0.05} ry={s*0.06} fill={wallMid} opacity={0.4} />
+        <ellipse cx={s*0.22} cy={s*0.68} rx={s*0.05} ry={s*0.04} fill={wallMid} opacity={0.35} />
+        <ellipse cx={s*0.75} cy={s*0.30} rx={s*0.04} ry={s*0.05} fill={wallMid} opacity={0.35} />
+
+        {/* inner vignette frame */}
+        <rect x={0} y={0} width={s} height={s}
+          fill="none" stroke={wallDark} strokeWidth={s * 0.06} opacity={0.5} />
+
+        {/* === LAYER 3: corridor wall-shadow strips (drawn wide, floor covers centre) === */}
+        {N && <rect x={half - pw/2 - sw} y={0} width={pw + sw*2} height={half + pw/2} fill={pathShadow} />}
+        {S && <rect x={half - pw/2 - sw} y={half - pw/2} width={pw + sw*2} height={half + pw/2} fill={pathShadow} />}
+        {E && <rect x={half - pw/2} y={half - pw/2 - sw} width={half + pw/2} height={pw + sw*2} fill={pathShadow} />}
+        {W && <rect x={0} y={half - pw/2 - sw} width={half + pw/2} height={pw + sw*2} fill={pathShadow} />}
+        {/* centre hub shadow */}
+        {(N || S || E || W) && (
+          <rect x={half - pw/2 - sw} y={half - pw/2 - sw} width={pw + sw*2} height={pw + sw*2} fill={pathShadow} />
+        )}
+
+        {/* === LAYER 4: corridor floors === */}
+        {N && <rect x={half - pw/2} y={0} width={pw} height={half} fill={pathFloor} />}
+        {S && <rect x={half - pw/2} y={half} width={pw} height={half} fill={pathFloor} />}
+        {E && <rect x={half} y={half - pw/2} width={half} height={pw} fill={pathFloor} />}
+        {W && <rect x={0} y={half - pw/2} width={half} height={pw} fill={pathFloor} />}
         {/* centre hub */}
-        <rect x={half - pw / 2} y={half - pw / 2} width={pw} height={pw} fill={path} />
+        {(N || S || E || W) && (
+          <rect x={half - pw/2} y={half - pw/2} width={pw} height={pw} fill={pathFloor} />
+        )}
 
-        {/* exit corridors */}
-        {exits.includes('N') && <rect x={half - pw / 2} y={0} width={pw} height={half} fill={path} />}
-        {exits.includes('S') && <rect x={half - pw / 2} y={half} width={pw} height={half} fill={path} />}
-        {exits.includes('E') && <rect x={half} y={half - pw / 2} width={half} height={pw} fill={path} />}
-        {exits.includes('W') && <rect x={0} y={half - pw / 2} width={half} height={pw} fill={path} />}
+        {/* === LAYER 5: corridor highlight (central lighter stripe) === */}
+        {N && <rect x={half - hw/2} y={0} width={hw} height={half} fill={pathLight} opacity={0.45} />}
+        {S && <rect x={half - hw/2} y={half} width={hw} height={half} fill={pathLight} opacity={0.45} />}
+        {E && <rect x={half} y={half - hw/2} width={half} height={hw} fill={pathLight} opacity={0.45} />}
+        {W && <rect x={0} y={half - hw/2} width={half} height={hw} fill={pathLight} opacity={0.45} />}
+        {/* centre hub highlight */}
+        {(N || S || E || W) && (
+          <rect x={half - hw/2} y={half - hw/2} width={hw} height={hw} fill={pathLight} opacity={0.45} />
+        )}
 
-        {/* faint 4×4 grid */}
+        {/* === LAYER 6: named tile — gold corner accent marks === */}
+        {tileDef.isNamed && (() => {
+          const m = Math.max(3, s * 0.06); // mark length
+          const o = Math.max(2, s * 0.04); // offset from edge
+          const corners = [
+            // top-left
+            [[o, o], [o + m, o]], [[o, o], [o, o + m]],
+            // top-right
+            [[s - o, o], [s - o - m, o]], [[s - o, o], [s - o, o + m]],
+            // bottom-left
+            [[o, s - o], [o + m, s - o]], [[o, s - o], [o, s - o - m]],
+            // bottom-right
+            [[s - o, s - o], [s - o - m, s - o]], [[s - o, s - o], [s - o, s - o - m]],
+          ] as [[number, number], [number, number]][];
+          return (
+            <g stroke="#c4a87a" strokeWidth={Math.max(1, s * 0.025)} opacity={0.85}>
+              {corners.map(([[x1, y1], [x2, y2]], i) => (
+                <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} />
+              ))}
+            </g>
+          );
+        })()}
+
+        {/* === LAYER 7: village — warm glow overlay + border === */}
+        {tileDef.isVillage && (
+          <>
+            <rect x={s*0.25} y={s*0.25} width={s*0.5} height={s*0.5} fill="#c4a87a" opacity={0.12} />
+            <rect x={1} y={1} width={s-2} height={s-2} fill="none" stroke="#c4a87a" strokeWidth={2} opacity={0.6} />
+          </>
+        )}
+
+        {/* === LAYER 8: subtle stone-slab grid === */}
         {[1, 2, 3].map((i) => (
-          <g key={i} opacity={0.15}>
+          <g key={i} opacity={0.08}>
             <line x1={0} y1={(s * i) / 4} x2={s} y2={(s * i) / 4} stroke="#000" strokeWidth={0.5} />
             <line x1={(s * i) / 4} y1={0} x2={(s * i) / 4} y2={s} stroke="#000" strokeWidth={0.5} />
           </g>
         ))}
+
       </svg>
 
       {/* symbols */}
