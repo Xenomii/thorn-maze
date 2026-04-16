@@ -5,6 +5,7 @@ import { getValidPlacements } from './utils/placementRules';
 import { MazeBoard } from './components/MazeBoard';
 import { TilePalette } from './components/TilePalette';
 import { Legend } from './components/Legend';
+import { GmPanel } from './components/GmPanel';
 import { TurnTracker } from './components/TurnTracker';
 import { GameControls } from './components/GameControls';
 import { HazardEventModal } from './components/HazardEventModal';
@@ -26,6 +27,8 @@ function App() {
     applySafeBenefit,
     tutorTile,
     passTurn,
+    adjustHazard,
+    adjustMoves,
     reset,
     setPlayers,
   } = useGameState();
@@ -162,6 +165,13 @@ function App() {
             onDiscard={discardTile}
           />
           <Legend />
+          <GmPanel
+            hazardCount={state.hazardCount}
+            hazardCap={HAZARD_CAP}
+            movesRemaining={state.movesRemaining}
+            onAdjustHazard={adjustHazard}
+            onAdjustMoves={adjustMoves}
+          />
         </div>
 
         {/* Center: board */}

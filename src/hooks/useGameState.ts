@@ -18,6 +18,8 @@ type Action =
   | { type: 'APPLY_SAFE_BENEFIT'; benefit: 'move' | 'hazard' }
   | { type: 'TUTOR_TILE'; tileId: string }
   | { type: 'PASS_TURN' }
+  | { type: 'ADJUST_HAZARD'; delta: number }
+  | { type: 'ADJUST_MOVES'; delta: number }
   | { type: 'UNDO' }
   | { type: 'RESET' }
   | { type: 'SET_PLAYERS'; players: Player[] };
@@ -290,6 +292,34 @@ function gameReducer(state: GameState, action: Action): GameState {
       };
     }
 
+    case 'ADJUST_HAZARD': {
+      const newHazard = Math.max(0, Math.min(HAZARD_CAP, state.hazardCount + action.delta));
+      const newLog: LogEntry = {
+        message: `GM: hazard adjusted ${action.delta > 0 ? '+' : ''}${action.delta} \u2192 ${newHazard}/${HAZARD_CAP}`,
+        timestamp: Date.now(),
+      };
+      return {
+        ...state,
+        hazardCount: newHazard,
+        phase: newHazard >= HAZARD_CAP ? 'failed' : state.phase,
+        log: [newLog, ...state.log],
+      };
+    }
+
+    case 'ADJUST_MOVES': {
+      const newMoves = Math.max(0, state.movesRemaining + action.delta);
+      const newLog: LogEntry = {
+        message: `GM: moves adjusted ${action.delta > 0 ? '+' : ''}${action.delta} \u2192 ${newMoves}`,
+        timestamp: Date.now(),
+      };
+      return {
+        ...state,
+        movesRemaining: newMoves,
+        phase: newMoves <= 0 ? 'failed' : state.phase,
+        log: [newLog, ...state.log],
+      };
+    }
+
     case 'UNDO': {
       if (state.placedTiles.length <= 2) return state;
       const last = state.placedTiles[state.placedTiles.length - 1];
@@ -364,6 +394,8 @@ export function useGameState() {
     ),
     tutorTile: useCallback((id: string) => dispatch({ type: 'TUTOR_TILE', tileId: id }), []),
     passTurn: useCallback(() => dispatch({ type: 'PASS_TURN' }), []),
+    adjustHazard: useCallback((delta: number) => dispatch({ type: 'ADJUST_HAZARD', delta }), []),
+    adjustMoves: useCallback((delta: number) => dispatch({ type: 'ADJUST_MOVES', delta }), []),
     undo: useCallback(() => dispatch({ type: 'UNDO' }), []),
     reset: useCallback(() => dispatch({ type: 'RESET' }), []),
     setPlayers: useCallback((p: Player[]) => dispatch({ type: 'SET_PLAYERS', players: p }), []),
