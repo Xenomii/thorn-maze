@@ -146,6 +146,13 @@ The game ends in defeat if any of the following occur:
 - The center slot shows 🔒 with a red tint while fewer than 5 named tiles have been placed. The 4 inner ring slots bordering the center are also dimmed red to indicate the restricted zone.
 - Once the center unlocks, it shows 🏘️ and becomes targetable once a connected route exists.
 
+### GM Controls (left panel, bottom)
+A collapsible **⚙ GM Controls** panel sits below the legend. It is intentionally styled in muted tones so players cannot easily read it.
+- **☠ Hazard** — adjust the hazard meter by −2, −1, +1, or +2 based on how the party resolved a table encounter.
+- **⏳ Moves** — adjust the move counter the same way to reward or penalise the party.
+- Every adjustment is recorded in the game log with the exact delta and new value.
+- If an adjustment pushes hazard to 15 or moves to 0, the failure condition triggers immediately.
+
 ### Turn Tracker (right panel)
 - Shows turn order and highlights the active player.
 - **Player names are editable** — click any name to rename.
