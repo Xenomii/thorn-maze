@@ -63,10 +63,10 @@ The final destination. Placed at the center slot to win the game. Held back from
 
 | Symbol | Icon | Effect when tile is placed |
 |--------|------|----------------------------|
-| Monster | 👹 | Costs 1 move. Triggers a monster encounter event. +1 hazard. |
-| Trap | ⌧ | Costs 1 move. Triggers a trap event. +1 hazard. |
-| Encounter | ▼ | Costs 1 move. Opens the **Tutor** — search the deck for a named tile and send it to the top. +1 hazard. |
-| Ambush | ❗ | Costs 1 move. Triggers an ambush event. +1 hazard. |
+| Monster | 👹 | Costs 1 move. Triggers a monster encounter event. +2 hazard. |
+| Trap | ⌧ | Costs 1 move. Triggers a trap event. +2 hazard. |
+| Encounter | ▼ | Costs 1 move. Opens the **Tutor** — search the deck for a named tile and send it to the top. +2 hazard. |
+| Ambush | ❗ | Costs 1 move. Triggers an ambush event. +2 hazard. |
 | *(none)* | — | **Safe tile** — costs 1 move. Triggers a benefit popup: choose **+1 Move** restored or **−1 Hazard** reduced. |
 
 ---

@@ -4,25 +4,25 @@ const ENTRIES = [
   {
     icon: '👹',
     label: 'Monster',
-    effect: 'Costs 1 move. Triggers a monster encounter event. +1 hazard.',
+    effect: 'Costs 1 move. Triggers a monster encounter event. +2 hazard.',
     color: '#e74c3c',
   },
   {
     icon: '⌧',
     label: 'Trap',
-    effect: 'Costs 1 move. Triggers a trap event. +1 hazard.',
+    effect: 'Costs 1 move. Triggers a trap event. +2 hazard.',
     color: '#f39c12',
   },
   {
     icon: '▼',
     label: 'Encounter',
-    effect: 'Costs 1 move. Search the deck for a named tile — it goes to the top. +1 hazard.',
+    effect: 'Costs 1 move. Search the deck for a named tile — it goes to the top. +2 hazard.',
     color: '#9b59b6',
   },
   {
     icon: '❗',
     label: 'Ambush',
-    effect: 'Costs 1 move. Triggers an ambush event. +1 hazard.',
+    effect: 'Costs 1 move. Triggers an ambush event. +2 hazard.',
     color: '#e67e22',
   },
   {
