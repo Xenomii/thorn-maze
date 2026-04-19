@@ -159,7 +159,9 @@ function gameReducer(state: GameState, action: Action): GameState {
       // All tiles cost 1 move; hazard tiles additionally push the hazard meter
       const isHazardTile = (tileDef?.symbols.length ?? 0) > 0;
       const newMovesRemaining = state.movesRemaining - 1;
-      const newHazardCount = isHazardTile ? state.hazardCount + 2 : state.hazardCount;
+      const isEncounterOnly = tileDef?.symbols.includes('encounter') && tileDef.symbols.length === 1;
+      const hazardIncrement = !isHazardTile ? 0 : isEncounterOnly ? 1 : 2;
+      const newHazardCount = state.hazardCount + hazardIncrement;
 
       const isVillage = tileDef?.isVillage ?? false;
       const newPhase = isVillage

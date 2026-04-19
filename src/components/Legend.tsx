@@ -16,7 +16,7 @@ const ENTRIES = [
   {
     icon: '▼',
     label: 'Encounter',
-    effect: 'Costs 1 move. Search the deck for a named tile — it goes to the top. +2 hazard.',
+    effect: 'Costs 1 move. Search the deck for a named tile — it goes to the top. +1 hazard.',
     color: '#9b59b6',
   },
   {
