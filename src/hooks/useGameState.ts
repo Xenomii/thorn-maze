@@ -391,7 +391,7 @@ function gameReducer(state: GameState, action: Action): GameState {
 // ---- hook ------------------------------------------------------------------
 
 export function useGameState() {
-  const [state, dispatch] = useReducer(gameReducer, null, createInitialState);
+  const [state, dispatch] = useReducer(gameReducer, undefined, createInitialState);
 
   return {
     state,

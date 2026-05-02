@@ -218,36 +218,6 @@ function bfsToTarget(
 
 // ---- escape-mode checks ----------------------------------------------------
 
-/** Exit tile can only be placed once N required named tiles are on the board. */
-function checkExitLast(defId: string, placed: PlacedTile[], namedRequired: number): boolean {
-  const def = getTileDef(defId);
-  if (!def?.isExit) return true;
-  const placedNamedCount = placed.filter((p) => getTileDef(p.defId)?.isNamed).length;
-  return placedNamedCount >= namedRequired;
-}
-
-/** Only the Exit tile may occupy the entrance slot (and only after N named tiles). */
-function checkExitRestriction(
-  row: number,
-  col: number,
-  defId: string,
-  placed: PlacedTile[],
-  namedRequired: number,
-): boolean {
-  const slot = getSlot(row, col);
-  if (!slot) return false;
-
-  const def = getTileDef(defId);
-
-  if (slot.zone === 'entrance') {
-    return !!def?.isExit && checkExitLast(defId, placed, namedRequired);
-  }
-
-  if (def?.isExit) return false;
-
-  return true;
-}
-
 /**
  * Until N required named tiles are placed, no tile may open a path into the
  * entrance slot (prevents early escape).
