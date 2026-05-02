@@ -8,6 +8,7 @@ import { Legend } from './components/Legend';
 import { GmPanel } from './components/GmPanel';
 import { TurnTracker } from './components/TurnTracker';
 import { GameControls } from './components/GameControls';
+import { NewGameModal } from './components/NewGameModal';
 import { HazardEventModal } from './components/HazardEventModal';
 import { GameEndModal } from './components/GameEndModal';
 import { SafeEventModal } from './components/SafeEventModal';
@@ -33,21 +34,31 @@ function App() {
     setPlayers,
   } = useGameState();
 
+  const [activeEvent, setActiveEvent] = useState<ReturnType<typeof getHazardEvent> | null>(null);
+  const [activeSafeEvent, setActiveSafeEvent] = useState<ReturnType<typeof getSafeEvent> | null>(null);
+  const [tutorOptions, setTutorOptions] = useState<TileDef[] | null>(null);
+  const [showNewGameModal, setShowNewGameModal] = useState(true);
+  const prevPlacedLengthRef = useRef(1);
+
+  const namedPlacedCount = state.placedTiles.filter((p) => getTileDef(p.defId)?.isNamed).length;
+  const lockedSlot = namedPlacedCount < NAMED_TILES_REQUIRED
+    ? state.gameMode === 'enter' ? { row: 3, col: 3 } : { row: 6, col: 3 }
+    : null;
+
+  const validSlots =
+    state.selectedTileId && state.phase === 'playing'
+      ? getValidPlacements(state.selectedTileId, state.selectedRotation, state.placedTiles, NAMED_TILES_REQUIRED, state.gameMode)
+      : [];
+
   const canCurrentPlayerPlace =
     state.phase === 'playing' &&
     [...state.hands[state.currentPlayerIndex], ...state.sharedPool].some((tileId) =>
       [0, 90, 180, 270].some(
-        (r) => getValidPlacements(tileId, r, state.placedTiles, NAMED_TILES_REQUIRED).length > 0,
+        (r) => getValidPlacements(tileId, r, state.placedTiles, NAMED_TILES_REQUIRED, state.gameMode).length > 0,
       ),
     );
 
-  const [activeEvent, setActiveEvent] = useState<ReturnType<typeof getHazardEvent> | null>(null);
-  const [activeSafeEvent, setActiveSafeEvent] = useState<ReturnType<typeof getSafeEvent> | null>(null);
-  const [tutorOptions, setTutorOptions] = useState<TileDef[] | null>(null);
-  const prevPlacedLengthRef = useRef(2);
-
-  // Auto-pass when the current player has no valid placements.
-  // Consecutive passes across all players triggers the failure condition in the reducer.
+  // Auto-pass when the current player has no valid placements
   useEffect(() => {
     if (state.phase !== 'playing') return;
     if (canCurrentPlayerPlace) return;
@@ -67,14 +78,12 @@ function App() {
 
     const last = state.placedTiles[newLen - 1];
     const def = getTileDef(last.defId);
-    if (!def || def.isVillage || def.isEntrance || def.isJungle) return;
+    if (!def || def.isVillage || def.isExit || def.isEntrance || def.isJungle || def.isDungeonHeart) return;
 
     if (def.symbols.length === 0) {
-      // Safe tile — player picks a benefit
       const benefit = Math.random() < 0.5 ? 'move' : 'hazard';
       setActiveSafeEvent(getSafeEvent(benefit as 'move' | 'hazard'));
     } else if (def.symbols.includes('encounter')) {
-      // Encounter — tutor if named tiles remain in deck
       const namedInDeck = state.deck
         .map((id) => getTileDef(id))
         .filter((d): d is TileDef => !!d?.isNamed);
@@ -89,11 +98,6 @@ function App() {
       setActiveEvent(getHazardEvent(sym));
     }
   }, [state.placedTiles.length]);
-
-  const validSlots =
-    state.selectedTileId && state.phase === 'playing'
-      ? getValidPlacements(state.selectedTileId, state.selectedRotation, state.placedTiles, NAMED_TILES_REQUIRED)
-      : [];
 
   const handleSlotClick = (row: number, col: number) => {
     if (state.phase !== 'playing') return;
@@ -118,11 +122,19 @@ function App() {
         fontFamily: "'Segoe UI', system-ui, sans-serif",
       }}
     >
+      {showNewGameModal && (
+        <NewGameModal
+          currentMode={state.gameMode}
+          onSelect={(mode) => { reset(mode); setShowNewGameModal(false); }}
+          onCancel={() => setShowNewGameModal(false)}
+        />
+      )}
       {(state.phase === 'complete' || state.phase === 'failed') && (
         <GameEndModal
           phase={state.phase}
           failureReason={state.log[0]?.message ?? 'The maze could not be completed.'}
-          onReset={reset}
+          gameMode={state.gameMode}
+          onReset={() => setShowNewGameModal(true)}
         />
       )}
       {activeEvent && (
@@ -141,13 +153,13 @@ function App() {
           onSkip={() => setTutorOptions(null)}
         />
       )}
-        <GameControls
-          onReset={reset}
-          phase={state.phase}
-          movesRemaining={state.movesRemaining}
-          hazardCount={state.hazardCount}
-          hazardCap={HAZARD_CAP}
-        />
+      <GameControls
+        onNewGame={() => setShowNewGameModal(true)}
+        phase={state.phase}
+        movesRemaining={state.movesRemaining}
+        hazardCount={state.hazardCount}
+        hazardCap={HAZARD_CAP}
+      />
 
       <div style={{ display: 'flex', flex: 1, gap: 16, padding: 16, overflow: 'hidden' }}>
         {/* Left: palette */}
@@ -176,13 +188,11 @@ function App() {
 
         {/* Center: board */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'auto' }}>
-        <MazeBoard
+          <MazeBoard
             placedTiles={state.placedTiles}
             validSlots={validSlots}
             onSlotClick={handleSlotClick}
-            centerLocked={state.placedTiles.filter((p) => {
-              const d = getTileDef(p.defId); return d?.isNamed ?? false;
-            }).length < NAMED_TILES_REQUIRED}
+            lockedSlot={lockedSlot}
           />
         </div>
 

@@ -119,6 +119,24 @@ export const VILLAGE_TILE: TileDef = {
   isVillage: true,
 };
 
+export const DUNGEON_HEART_TILE: TileDef = {
+  id: 'dungeon-heart',
+  name: 'Dungeon Heart',
+  exits: ['N', 'E', 'S', 'W'],
+  symbols: [],
+  isNamed: false,
+  isDungeonHeart: true,
+};
+
+export const EXIT_TILE: TileDef = {
+  id: 'exit',
+  name: 'Maze Exit',
+  exits: ['N', 'E', 'S', 'W'],
+  symbols: [],
+  isNamed: false,
+  isExit: true,
+};
+
 export const ENTRANCE_TILE: TileDef = {
   id: 'entrance',
   name: 'Maze Entrance',
@@ -144,6 +162,8 @@ export const JUNGLE_TILE: TileDef = {
 export const ALL_TILES: TileDef[] = [
   JUNGLE_TILE,
   ENTRANCE_TILE,
+  DUNGEON_HEART_TILE,
+  EXIT_TILE,
   ...NAMED_TILES,
   ...UNNAMED_TILES,
   VILLAGE_TILE,

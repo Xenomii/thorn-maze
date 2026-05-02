@@ -151,15 +151,36 @@ export function checkNoEarlyCenter(
  * center slot — i.e. there is a genuine path from the entrance to the village.
  */
 function hasRouteToCenter(placed: PlacedTile[]): boolean {
-  const centerSlot = RING_SLOTS.find((s) => s.zone === 'center');
-  if (!centerSlot) return false;
+  return bfsToTarget(placed, 'isEntrance', 'center');
+}
 
-  const entrance = placed.find((p) => getTileDef(p.defId)?.isEntrance);
-  if (!entrance) return false;
+/**
+ * BFS from the dungeon heart through connected tile exits.
+ * Returns true if a reachable tile has an exit pointing into the entrance
+ * slot — i.e. there is a genuine escape path from the dungeon heart to the exit.
+ */
+export function hasRouteToExit(placed: PlacedTile[]): boolean {
+  return bfsToTarget(placed, 'isDungeonHeart', 'entrance');
+}
+
+/** Generic BFS helper: walk from the tile matching `startFlag` toward the slot matching `targetZone`. */
+function bfsToTarget(
+  placed: PlacedTile[],
+  startFlag: 'isEntrance' | 'isDungeonHeart',
+  targetZone: 'center' | 'entrance',
+): boolean {
+  const targetSlot = RING_SLOTS.find((s) => s.zone === targetZone);
+  if (!targetSlot) return false;
+
+  const startTile = placed.find((p) => {
+    const d = getTileDef(p.defId);
+    return startFlag === 'isEntrance' ? d?.isEntrance : d?.isDungeonHeart;
+  });
+  if (!startTile) return false;
 
   const visited = new Set<string>();
-  const queue: [number, number][] = [[entrance.slotRow, entrance.slotCol]];
-  visited.add(`${entrance.slotRow},${entrance.slotCol}`);
+  const queue: [number, number][] = [[startTile.slotRow, startTile.slotCol]];
+  visited.add(`${startTile.slotRow},${startTile.slotCol}`);
 
   while (queue.length > 0) {
     const [row, col] = queue.shift()!;
@@ -173,8 +194,7 @@ function hasRouteToCenter(placed: PlacedTile[]): boolean {
     for (const dir of exits) {
       const [nr, nc] = adjacentCoords(row, col, dir);
 
-      // An exit into the center slot means there is a connected route
-      if (nr === centerSlot.row && nc === centerSlot.col) return true;
+      if (nr === targetSlot.row && nc === targetSlot.col) return true;
 
       const key = `${nr},${nc}`;
       if (visited.has(key)) continue;
@@ -196,6 +216,67 @@ function hasRouteToCenter(placed: PlacedTile[]): boolean {
   return false;
 }
 
+// ---- escape-mode checks ----------------------------------------------------
+
+/** Exit tile can only be placed once N required named tiles are on the board. */
+function checkExitLast(defId: string, placed: PlacedTile[], namedRequired: number): boolean {
+  const def = getTileDef(defId);
+  if (!def?.isExit) return true;
+  const placedNamedCount = placed.filter((p) => getTileDef(p.defId)?.isNamed).length;
+  return placedNamedCount >= namedRequired;
+}
+
+/** Only the Exit tile may occupy the entrance slot (and only after N named tiles). */
+function checkExitRestriction(
+  row: number,
+  col: number,
+  defId: string,
+  placed: PlacedTile[],
+  namedRequired: number,
+): boolean {
+  const slot = getSlot(row, col);
+  if (!slot) return false;
+
+  const def = getTileDef(defId);
+
+  if (slot.zone === 'entrance') {
+    return !!def?.isExit && checkExitLast(defId, placed, namedRequired);
+  }
+
+  if (def?.isExit) return false;
+
+  return true;
+}
+
+/**
+ * Until N required named tiles are placed, no tile may open a path into the
+ * entrance slot (prevents early escape).
+ */
+function checkNoEarlyExit(
+  row: number,
+  col: number,
+  defId: string,
+  rotation: number,
+  placed: PlacedTile[],
+  namedRequired: number,
+): boolean {
+  const def = getTileDef(defId);
+  if (!def || def.isExit) return true;
+
+  const exits = getRotatedExits(def.exits, rotation);
+  const exitSlot = RING_SLOTS.find((s) => s.zone === 'entrance');
+  if (!exitSlot) return true;
+
+  for (const dir of exits) {
+    const [ar, ac] = adjacentCoords(row, col, dir);
+    if (ar === exitSlot.row && ac === exitSlot.col) {
+      const placedNamedCount = placed.filter((p) => getTileDef(p.defId)?.isNamed).length;
+      if (placedNamedCount < namedRequired) return false;
+    }
+  }
+  return true;
+}
+
 // ---- main entry point ------------------------------------------------------
 
 export interface ValidationResult {
@@ -210,6 +291,7 @@ export function canPlaceTile(
   rotation: number,
   placed: PlacedTile[],
   namedRequired: number,
+  gameMode: 'enter' | 'escape' = 'enter',
 ): ValidationResult {
   const slot = getSlot(row, col);
   if (!slot) return { valid: false, reason: 'Not a valid slot' };
@@ -218,31 +300,37 @@ export function canPlaceTile(
     return { valid: false, reason: 'Slot already occupied' };
   }
 
-  if (!checkCenterRestriction(row, col, defId, placed, namedRequired)) {
-    return { valid: false, reason: `Only the Village tile may go in the center (after ${namedRequired} named tiles)` };
-  }
-
   const def = getTileDef(defId);
-  if (def?.isVillage) {
-    // Skip normal connectivity (closed-wall neighbours cause false mismatches),
-    // but require a genuine connected route from the entrance to the center.
-    if (!hasRouteToCenter(placed)) {
-      return { valid: false, reason: 'No connected route from the entrance to the center yet' };
+
+  if (gameMode === 'enter') {
+    if (!checkCenterRestriction(row, col, defId, placed, namedRequired)) {
+      return { valid: false, reason: `Only the Village tile may go in the center (after ${namedRequired} named tiles)` };
     }
-  } else if (!checkConnectivity(row, col, defId, rotation, placed)) {
-    return { valid: false, reason: 'Tile paths must connect to an existing tile' };
+    if (def?.isVillage) {
+      if (!hasRouteToCenter(placed)) {
+        return { valid: false, reason: 'No connected route from the entrance to the center yet' };
+      }
+    } else if (!checkConnectivity(row, col, defId, rotation, placed)) {
+      return { valid: false, reason: 'Tile paths must connect to an existing tile' };
+    }
+    if (!checkVillageLast(defId, placed, namedRequired)) {
+      return { valid: false, reason: `Place ${namedRequired} named tiles before the Village` };
+    }
+    if (!checkNoEarlyCenter(row, col, defId, rotation, placed, namedRequired)) {
+      return { valid: false, reason: 'Cannot open a path to the center until enough named tiles are placed' };
+    }
+  } else {
+    // Escape mode: entrance is pre-placed, win fires automatically when path connects
+    if (!checkConnectivity(row, col, defId, rotation, placed)) {
+      return { valid: false, reason: 'Tile paths must connect to an existing tile' };
+    }
+    if (!checkNoEarlyExit(row, col, defId, rotation, placed, namedRequired)) {
+      return { valid: false, reason: 'Cannot open a path to the exit until enough named tiles are placed' };
+    }
   }
 
   if (!checkNamedSeparation(row, col, defId, placed)) {
     return { valid: false, reason: 'Named tiles must be separated by at least one unnamed tile' };
-  }
-
-  if (!checkVillageLast(defId, placed, namedRequired)) {
-    return { valid: false, reason: `Place ${namedRequired} named tiles before the Village` };
-  }
-
-  if (!checkNoEarlyCenter(row, col, defId, rotation, placed, namedRequired)) {
-    return { valid: false, reason: 'Cannot open a path to the center until enough named tiles are placed' };
   }
 
   return { valid: true };
@@ -254,8 +342,9 @@ export function getValidPlacements(
   rotation: number,
   placed: PlacedTile[],
   namedRequired: number,
+  gameMode: 'enter' | 'escape' = 'enter',
 ): SlotPosition[] {
   return RING_SLOTS.filter((slot) =>
-    canPlaceTile(slot.row, slot.col, defId, rotation, placed, namedRequired).valid,
+    canPlaceTile(slot.row, slot.col, defId, rotation, placed, namedRequired, gameMode).valid,
   );
 }

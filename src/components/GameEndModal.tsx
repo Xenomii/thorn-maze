@@ -1,10 +1,11 @@
 interface Props {
   phase: 'complete' | 'failed';
   failureReason: string;
+  gameMode: 'enter' | 'escape';
   onReset: () => void;
 }
 
-const WIN = {
+const WIN_ENTER = {
   icon: '🏘️',
   title: 'Village Reached!',
   messages: [
@@ -12,6 +13,19 @@ const WIN = {
     'The thorns part. The path is clear. You have found the village.',
     'Through monsters, traps, and darkness — you made it.',
   ],
+};
+
+const WIN_ESCAPE = {
+  icon: '☀️',
+  title: 'Escaped!',
+  messages: [
+    'Daylight. The jungle air hits your lungs. You are free.',
+    'The maze releases its grip. You have found the way out.',
+    'Against every trap and horror, the party escapes the Dungeon Heart.',
+  ],
+};
+
+const WIN_SHARED = {
   borderColor: '#2ecc71',
   titleColor: '#2ecc71',
   glowColor: 'rgba(46,204,113,0.35)',
@@ -27,11 +41,12 @@ const LOSE = {
   btnLabel: 'Try Again',
 };
 
-export function GameEndModal({ phase, failureReason, onReset }: Props) {
+export function GameEndModal({ phase, failureReason, gameMode, onReset }: Props) {
   const isWin = phase === 'complete';
-  const config = isWin ? WIN : LOSE;
+  const winData = gameMode === 'enter' ? WIN_ENTER : WIN_ESCAPE;
+  const config = isWin ? { ...WIN_SHARED, ...winData } : LOSE;
   const message = isWin
-    ? WIN.messages[Math.floor(Math.random() * WIN.messages.length)]
+    ? winData.messages[Math.floor(Math.random() * winData.messages.length)]
     : failureReason;
 
   return (

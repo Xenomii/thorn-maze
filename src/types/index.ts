@@ -20,6 +20,8 @@ export interface TileDef {
   isVillage?: boolean;
   isEntrance?: boolean;
   isJungle?: boolean;
+  isDungeonHeart?: boolean;
+  isExit?: boolean;
 }
 
 export interface PlacedTile {
@@ -63,6 +65,7 @@ export interface GameState {
   hazardCount: number;
   consecutivePasses: number;
   sharedPool: string[];
+  gameMode: 'enter' | 'escape';
 }
 
 /** Return the exits of a tile after applying rotation (clockwise degrees). */

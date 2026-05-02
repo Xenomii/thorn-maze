@@ -1,12 +1,12 @@
 interface Props {
-  onReset: () => void;
+  onNewGame: () => void;
   phase: string;
   movesRemaining: number;
   hazardCount: number;
   hazardCap: number;
 }
 
-export function GameControls({ onReset, phase, movesRemaining, hazardCount, hazardCap }: Props) {
+export function GameControls({ onNewGame, phase, movesRemaining, hazardCount, hazardCap }: Props) {
   const movesColor =
     movesRemaining <= 5 ? '#e74c3c' : movesRemaining <= 10 ? '#f39c12' : '#c4a87a';
   const hazardColor =
@@ -44,10 +44,7 @@ export function GameControls({ onReset, phase, movesRemaining, hazardCount, haza
         {phase === 'failed' && (
           <span style={{ color: '#e74c3c', fontSize: 14 }}>✗ Maze lost!</span>
         )}
-        <button
-          onClick={() => { if (confirm('Reset the entire maze?')) onReset(); }}
-          style={btn}
-        >
+        <button onClick={onNewGame} style={btn}>
           🔄 New Game
         </button>
       </div>

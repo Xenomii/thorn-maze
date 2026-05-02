@@ -6,28 +6,29 @@ import { TileDisplay } from './TileDisplay';
 const SLOT_SIZE = 88;
 const TILE_SIZE = 80;
 
-// Slots in the inner ring that directly border the center
-const CENTER_SLOT = RING_SLOTS.find((s) => s.zone === 'center')!;
-const INNER_ADJACENT = [
-  getSlot(CENTER_SLOT.row - 1, CENTER_SLOT.col),
-  getSlot(CENTER_SLOT.row + 1, CENTER_SLOT.col),
-  getSlot(CENTER_SLOT.row, CENTER_SLOT.col - 1),
-  getSlot(CENTER_SLOT.row, CENTER_SLOT.col + 1),
-].filter(Boolean) as SlotPosition[];
-
 interface Props {
   placedTiles: PlacedTile[];
   validSlots: SlotPosition[];
   onSlotClick: (row: number, col: number) => void;
-  centerLocked: boolean;
+  lockedSlot: { row: number; col: number } | null;
 }
 
-export function MazeBoard({ placedTiles, validSlots, onSlotClick, centerLocked }: Props) {
+export function MazeBoard({ placedTiles, validSlots, onSlotClick, lockedSlot }: Props) {
   const placed = (r: number, c: number) => placedTiles.find((p) => p.slotRow === r && p.slotCol === c);
   const isValid = (r: number, c: number) => validSlots.some((s) => s.row === r && s.col === c);
   const zone = (r: number, c: number) => RING_SLOTS.find((s) => s.row === r && s.col === c)?.zone;
-  const isInnerAdjacent = (r: number, c: number) =>
-    centerLocked && INNER_ADJACENT.some((s) => s.row === r && s.col === c);
+
+  const lockedAdjacents = lockedSlot
+    ? [
+        getSlot(lockedSlot.row - 1, lockedSlot.col),
+        getSlot(lockedSlot.row + 1, lockedSlot.col),
+        getSlot(lockedSlot.row, lockedSlot.col - 1),
+        getSlot(lockedSlot.row, lockedSlot.col + 1),
+      ].filter(Boolean) as SlotPosition[]
+    : [];
+
+  const isLockedAdjacent = (r: number, c: number) =>
+    lockedAdjacents.some((s) => s.row === r && s.col === c);
 
   return (
     <div
@@ -66,22 +67,22 @@ export function MazeBoard({ placedTiles, validSlots, onSlotClick, centerLocked }
           }
 
           // Empty slot (maybe valid for placement)
-          const locked = centerLocked && z === 'center';
-          const adjLocked = isInnerAdjacent(row, col) && !v;
+          const isGoalSlot = !!lockedSlot && row === lockedSlot.row && col === lockedSlot.col;
+          const locked = isGoalSlot;
+          const adjLocked = isLockedAdjacent(row, col) && !v;
 
-          let borderStyle = `1px dashed #2d5a27`;
+          let borderStyle = '1px dashed #2d5a27';
           if (v) borderStyle = '2px dashed #ffd700';
-          else if (locked) borderStyle = '1px solid #8B3a3a';
-          else if (z === 'center') borderStyle = '1px dashed #8B7355';
-          else if (adjLocked) borderStyle = '1px dashed #7a3a20';
+          else if (locked) borderStyle = '2px solid #c0392b';
+          else if (adjLocked) borderStyle = '2px solid #c0392b';
 
           let bgStyle = 'transparent';
           if (v) bgStyle = 'rgba(255,215,0,0.06)';
-          else if (locked) bgStyle = 'rgba(139,58,58,0.12)';
-          else if (adjLocked) bgStyle = 'rgba(122,58,32,0.08)';
+          else if (locked) bgStyle = 'rgba(192,57,43,0.15)';
+          else if (adjLocked) bgStyle = 'rgba(192,57,43,0.08)';
 
           let icon = '';
-          if (z === 'center') icon = locked ? '🔒' : '🏘️';
+          if (isGoalSlot) icon = locked ? '🔒' : '🏘️';
           else if (v) icon = '✦';
 
           return (
@@ -97,10 +98,9 @@ export function MazeBoard({ placedTiles, validSlots, onSlotClick, centerLocked }
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: locked ? 20 : 10,
-                  color: v ? '#ffd700' : locked ? '#8B3a3a' : '#2d5a2780',
+                  color: v ? '#ffd700' : locked ? '#c0392b' : '#2d5a2780',
                   background: bgStyle,
                   transition: 'border-color 0.2s, background 0.2s',
-                  opacity: adjLocked ? 0.7 : 1,
                 }}
               >
                 {icon}

@@ -8,8 +8,8 @@ import type { SlotPosition } from '../types';
 //   2:   N   O   I   I   I   O   N
 //   3:   N   O   I   V   I   O   N
 //   4:   N   O   I   I   I   O   N
-//   5:   .   N   O   E   O   N   .      E = entrance (pre-placed)
-//   6:   .   .   N   J   N   .   .      J = jungle   (pre-placed)
+//   5:   .   N   O   O   O   N   .      (now a regular outer ring slot)
+//   6:   .   .   N   E   N   .   .      E = entrance (pre-placed)
 //
 //   N = outermost ring   O = outer ring   I = inner ring
 
@@ -41,6 +41,7 @@ export const RING_SLOTS: SlotPosition[] = [
   { row: 4, col: 1, zone: 'outer' },
   { row: 4, col: 5, zone: 'outer' },
   { row: 5, col: 2, zone: 'outer' },
+  { row: 5, col: 3, zone: 'outer' },
   { row: 5, col: 4, zone: 'outer' },
   // --- Inner ring ---
   { row: 2, col: 2, zone: 'inner' },
@@ -54,9 +55,7 @@ export const RING_SLOTS: SlotPosition[] = [
   // --- Center (Village destination) ---
   { row: 3, col: 3, zone: 'center' },
   // --- Entrance (pre-placed) ---
-  { row: 5, col: 3, zone: 'entrance' },
-  // --- Jungle start (pre-placed) ---
-  { row: 6, col: 3, zone: 'jungle' },
+  { row: 6, col: 3, zone: 'entrance' },
 ];
 
 export const GRID_ROWS = 7;

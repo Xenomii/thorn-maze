@@ -1,6 +1,7 @@
 import { useReducer, useCallback } from 'react';
 import type { GameState, PlacedTile, Player, LogEntry } from '../types';
 import { NAMED_TILES, UNNAMED_TILES, VILLAGE_TILE, getTileDef } from '../data/tiles';
+import { hasRouteToExit } from '../utils/placementRules';
 
 const HAND_SIZE = 3;
 const MOVE_LIMIT = 15;
@@ -21,7 +22,7 @@ type Action =
   | { type: 'ADJUST_HAZARD'; delta: number }
   | { type: 'ADJUST_MOVES'; delta: number }
   | { type: 'UNDO' }
-  | { type: 'RESET' }
+  | { type: 'RESET'; mode: 'enter' | 'escape' }
   | { type: 'SET_PLAYERS'; players: Player[] };
 
 // ---- defaults --------------------------------------------------------------
@@ -46,13 +47,18 @@ function shuffle<T>(arr: T[]): T[] {
 
 // ---- initial state ---------------------------------------------------------
 
-function createInitialState(): GameState {
-  const initialPlaced: PlacedTile[] = [
-    { defId: 'jungle', rotation: 0, slotRow: 6, slotCol: 3 },
-    { defId: 'entrance', rotation: 0, slotRow: 5, slotCol: 3 },
-  ];
+function createInitialState(mode: 'enter' | 'escape' = 'enter'): GameState {
+  const initialPlaced: PlacedTile[] =
+    mode === 'enter'
+      ? [
+          { defId: 'entrance', rotation: 0, slotRow: 6, slotCol: 3 },
+        ]
+      : [
+          { defId: 'entrance', rotation: 0, slotRow: 6, slotCol: 3 },
+          { defId: 'dungeon-heart', rotation: 0, slotRow: 3, slotCol: 3 },
+        ];
 
-  // Village tile is held back — it enters the deck only once all named tiles are placed
+  // Special win tile held back until 5 named are placed
   const allIds = shuffle([
     ...NAMED_TILES.map((t) => t.id),
     ...UNNAMED_TILES.map((t) => t.id),
@@ -85,6 +91,7 @@ function createInitialState(): GameState {
     hazardCount: 0,
     consecutivePasses: 0,
     sharedPool: [],
+    gameMode: mode,
   };
 }
 
@@ -135,15 +142,16 @@ function gameReducer(state: GameState, action: Action): GameState {
         drawMsg = ` → drew ${getTileDef(drawn)?.name ?? drawn}`;
       }
 
-      // Check if placing this tile completes the named-tile requirement, unlocking the village
+      // Check if placing this tile completes the named-tile requirement (enter mode: unlock Village)
+      const MODE = state.gameMode;
       const allPlacedIds = new Set([...state.placedTiles.map((p) => p.defId), state.selectedTileId]);
       const placedNamedCount = [...allPlacedIds].filter((id) => getTileDef(id)?.isNamed).length;
       const allNamedPlaced = placedNamedCount >= NAMED_TILES_REQUIRED;
       const villageAlreadyInPlay =
         state.remainingTileIds.includes(VILLAGE_TILE.id) || state.sharedPool.includes(VILLAGE_TILE.id);
-      const unlockVillage = allNamedPlaced && !villageAlreadyInPlay && !tileDef?.isVillage;
+      const unlockVillage = MODE === 'enter' && allNamedPlaced && !villageAlreadyInPlay && !tileDef?.isVillage;
 
-      // Village goes into a shared pool visible to all players
+      // Village goes into shared pool (enter mode only)
       const newSharedPool = unlockVillage
         ? [...state.sharedPool, VILLAGE_TILE.id]
         : state.sharedPool.filter((id) => id !== state.selectedTileId);
@@ -163,8 +171,12 @@ function gameReducer(state: GameState, action: Action): GameState {
       const hazardIncrement = !isHazardTile ? 0 : isEncounterOnly ? 1 : 2;
       const newHazardCount = state.hazardCount + hazardIncrement;
 
-      const isVillage = tileDef?.isVillage ?? false;
-      const newPhase = isVillage
+      // Win check: village placed (enter) or route from dungeon heart reaches entrance (escape)
+      const newPlacedAll = [...state.placedTiles, newPlaced];
+      const isWin = MODE === 'enter'
+        ? (tileDef?.isVillage ?? false)
+        : hasRouteToExit(newPlacedAll);
+      const newPhase = isWin
         ? 'complete'
         : newHazardCount >= HAZARD_CAP
         ? 'failed'
@@ -173,16 +185,17 @@ function gameReducer(state: GameState, action: Action): GameState {
         : state.phase;
 
       const unlockMsg = unlockVillage ? ' — Village unlocked!' : '';
+      const winMsg = isWin && MODE === 'escape' ? ' — Escape route complete!' : '';
       const hazardMsg =
         isHazardTile && newHazardCount >= HAZARD_CAP ? ' — Maze overrun by danger!' : '';
       const newLog: LogEntry = {
-        message: `${player.name} placed "${tileDef?.name ?? state.selectedTileId}"${drawMsg}${unlockMsg}${hazardMsg}`,
+        message: `${player.name} placed "${tileDef?.name ?? state.selectedTileId}"${drawMsg}${unlockMsg}${winMsg}${hazardMsg}`,
         timestamp: Date.now(),
       };
 
       return {
         ...state,
-        placedTiles: [...state.placedTiles, newPlaced],
+        placedTiles: newPlacedAll,
         remainingTileIds: unlockVillage
           ? [...state.remainingTileIds.filter((id) => id !== state.selectedTileId), VILLAGE_TILE.id]
           : state.remainingTileIds.filter((id) => id !== state.selectedTileId),
@@ -323,7 +336,8 @@ function gameReducer(state: GameState, action: Action): GameState {
     }
 
     case 'UNDO': {
-      if (state.placedTiles.length <= 2) return state;
+      const minPlaced = state.gameMode === 'escape' ? 2 : 1;
+      if (state.placedTiles.length <= minPlaced) return state;
       const last = state.placedTiles[state.placedTiles.length - 1];
       const prevIndex =
         (state.currentPlayerIndex - 1 + state.players.length) % state.players.length;
@@ -364,7 +378,7 @@ function gameReducer(state: GameState, action: Action): GameState {
     }
 
     case 'RESET':
-      return createInitialState();
+      return createInitialState(action.mode);
 
     case 'SET_PLAYERS':
       return { ...state, players: action.players };
@@ -399,7 +413,7 @@ export function useGameState() {
     adjustHazard: useCallback((delta: number) => dispatch({ type: 'ADJUST_HAZARD', delta }), []),
     adjustMoves: useCallback((delta: number) => dispatch({ type: 'ADJUST_MOVES', delta }), []),
     undo: useCallback(() => dispatch({ type: 'UNDO' }), []),
-    reset: useCallback(() => dispatch({ type: 'RESET' }), []),
+    reset: useCallback((mode: 'enter' | 'escape') => dispatch({ type: 'RESET', mode }), []),
     setPlayers: useCallback((p: Player[]) => dispatch({ type: 'SET_PLAYERS', players: p }), []),
   };
 }
